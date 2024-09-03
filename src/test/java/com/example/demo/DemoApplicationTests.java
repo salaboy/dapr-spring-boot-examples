@@ -1,7 +1,10 @@
 package com.example.demo;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
 import okhttp3.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,31 +13,35 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.IOException;
 
+import static io.restassured.RestAssured.given;
 
-@SpringBootTest(classes= {TestDemoApplication.class},
+
+@SpringBootTest(classes= {TestDemoApplication.class, DaprTestContainersConfig.class},
 				webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 class DemoApplicationTests {
 
-	@Autowired
-	private ObjectMapper mapper;
+	@BeforeEach
+	void setUp() {
+		RestAssured.baseURI = "http://localhost:" + 8080;
+	}
 
 	@Test
 	void testEndpoint() throws InterruptedException, IOException {
-		OkHttpClient client = new OkHttpClient.Builder().build();
-		String url = "http://localhost:8080/store";
+		given()
+						.contentType(ContentType.JSON)
+						.body(
+										"""
+                    {
+                        "orderId": "abc-123",
+                        "amount": 1
+                    }
+                    """
+						)
+						.when()
+						.post("/store")
+						.then()
+						.statusCode(200);
 
-		String orderAsString = mapper.writeValueAsString(new Order("abc-123", 4));
-		RequestBody body = RequestBody.create(
-						MediaType.parse("application/json"), orderAsString);
-		Request request = new Request.Builder().url(url).post(body).build();
-
-		try (Response response = client.newCall(request).execute()) {
-			if (response.isSuccessful() && response.body() != null) {
-
-			}else {
-				throw new IOException("Unexpected response: " + response.code());
-			}
-		}
 
 	}
 

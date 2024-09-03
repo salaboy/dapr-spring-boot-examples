@@ -39,44 +39,52 @@ public class DaprTestContainersConfig {
 
    static final Map<String, String> BINDING_PROPERTIES = Collections.singletonMap("connectionString", CONNECTION_STRING);
 
-   static final Network DAPR_NETWORK = Network.newNetwork();
-
-   static final WaitStrategy DAPR_CONTAINER_WAIT_STRATEGY = Wait.forHttp("/v1.0/healthz")
-          .forPort(3500)
-          .forStatusCodeMatching(statusCode -> statusCode >= 200 && statusCode <= 399);
-
-  @Container
-   static  PostgreSQLContainer<?> POSTGRESQL_CONTAINER = new PostgreSQLContainer<>("postgres:16-alpine")
-          .withNetworkAliases("postgres-repository")
-          .withDatabaseName("dapr_db_repository")
-          .withUsername("postgres")
-          .withPassword("password")
-          .withExposedPorts(5432)
-          .withNetwork(DAPR_NETWORK);
 
 
-  @Container
-  static DaprContainer dapr = new DaprContainer("daprio/daprd:1.13.2")
-          .withAppName("local-dapr-app")
-          .withNetwork(DAPR_NETWORK)
-          .withComponent(new Component("kvstore", "state.postgresql", "v1", STATE_STORE_PROPERTIES))
-          .withComponent(new Component("kvbinding", "bindings.postgresql", "v1", BINDING_PROPERTIES))
-          .withDaprLogLevel(DaprLogLevel.DEBUG)
-          .withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String()))
-          //.withAppPort(8080)
-          .withDaprLogLevel(DaprLogLevel.DEBUG)
-          //.withAppChannelAddress("host.testcontainers.internal")
-          .waitingFor(DAPR_CONTAINER_WAIT_STRATEGY)
-          .dependsOn(POSTGRESQL_CONTAINER);
+   @Bean
+   public Network daprNetwork(){
+     return Network.newNetwork();
+   }
+   @Bean
+   public  PostgreSQLContainer<?> postgreSQLContainer(Network daprNetwork){
+     return new PostgreSQLContainer<>("postgres:16-alpine")
+             .withNetworkAliases("postgres-repository")
+             .withDatabaseName("dapr_db_repository")
+             .withUsername("postgres")
+             .withPassword("password")
+             .withExposedPorts(5432)
+             .withNetwork(daprNetwork);
+
+   }
+
+   @Bean
+   public DaprContainer daprContainer(Network daprNetwork, PostgreSQLContainer<?> postgreSQLContainer){
+     final WaitStrategy DAPR_CONTAINER_WAIT_STRATEGY = Wait.forHttp("/v1.0/healthz")
+             .forPort(3500)
+             .forStatusCodeMatching(statusCode -> statusCode >= 200 && statusCode <= 399);
+     return new DaprContainer("daprio/daprd:1.13.2")
+             .withAppName("local-dapr-app")
+             .withNetwork(daprNetwork)
+             .withComponent(new Component("kvstore", "state.postgresql", "v1", STATE_STORE_PROPERTIES))
+             .withComponent(new Component("kvbinding", "bindings.postgresql", "v1", BINDING_PROPERTIES))
+             .withDaprLogLevel(DaprLogLevel.DEBUG)
+             .withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String()))
+             //.withAppPort(8080)
+             .withDaprLogLevel(DaprLogLevel.DEBUG)
+             //.withAppChannelAddress("host.testcontainers.internal")
+             .waitingFor(DAPR_CONTAINER_WAIT_STRATEGY)
+             .dependsOn(postgreSQLContainer);
+   }
+
 
   @DynamicPropertySource
-  static void daprProperties(DynamicPropertyRegistry registry) {
+  void daprProperties(DynamicPropertyRegistry registry, DaprContainer daprContainer) {
     org.testcontainers.Testcontainers.exposeHostPorts(8080);
-    dapr.start();
-    registry.add("dapr.grpc.port", dapr::getGrpcPort);
-    registry.add("dapr.http.port", dapr::getHttpPort);
-    registry.add("dapr.grpc.endpoint", dapr::getGrpcEndpoint);
-    registry.add("dapr.http.endpoint", dapr::getHttpEndpoint);
+    daprContainer.start();
+    registry.add("dapr.grpc.port", daprContainer::getGrpcPort);
+    registry.add("dapr.http.port", daprContainer::getHttpPort);
+    registry.add("dapr.grpc.endpoint", daprContainer::getGrpcEndpoint);
+    registry.add("dapr.http.endpoint", daprContainer::getHttpEndpoint);
 
   }
 
