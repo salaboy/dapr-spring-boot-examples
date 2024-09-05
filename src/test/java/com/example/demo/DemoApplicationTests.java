@@ -1,6 +1,7 @@
 package com.example.demo;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.dapr.testcontainers.DaprContainer;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import okhttp3.*;

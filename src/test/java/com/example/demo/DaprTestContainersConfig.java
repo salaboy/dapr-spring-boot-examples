@@ -1,20 +1,15 @@
 package com.example.demo;
 
-import io.dapr.spring.core.client.DaprClientCustomizer;
 import io.dapr.testcontainers.Component;
 import io.dapr.testcontainers.DaprContainer;
 import io.dapr.testcontainers.DaprLogLevel;
-import io.dapr.testcontainers.TestcontainersDaprClientCustomizer;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
-import org.testcontainers.junit.jupiter.Container;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,28 +18,17 @@ import java.util.Map;
 @TestConfiguration(proxyBeanMethods = false)
 public class DaprTestContainersConfig {
 
-
-  @Bean
-  public DaprClientCustomizer daprClientCustomizer(@Value("${dapr.http.port:0000}") String daprHttpPort,
-                                                   @Value("${dapr.grpc.port:0000}") String daprGrpcPort,
-                                                   @Value("${dapr.http.endpoint:''}") String daprHttpEndpoint,
-                                                   @Value("${dapr.grpc.endpoint:''}") String daprGrpcEndpoint
-  ){
-    return new TestcontainersDaprClientCustomizer(daprHttpPort, daprGrpcPort, daprHttpEndpoint, daprGrpcEndpoint);
-  }
-
    static final String CONNECTION_STRING =
           "host=postgres-repository user=postgres password=password port=5432 connect_timeout=10 database=dapr_db_repository";
    static final Map<String, String> STATE_STORE_PROPERTIES = createStateStoreProperties();
 
    static final Map<String, String> BINDING_PROPERTIES = Collections.singletonMap("connectionString", CONNECTION_STRING);
 
-
-
    @Bean
    public Network daprNetwork(){
      return Network.newNetwork();
    }
+
    @Bean
    public  PostgreSQLContainer<?> postgreSQLContainer(Network daprNetwork){
      return new PostgreSQLContainer<>("postgres:16-alpine")
@@ -58,6 +42,7 @@ public class DaprTestContainersConfig {
    }
 
    @Bean
+   @ServiceConnection
    public DaprContainer daprContainer(Network daprNetwork, PostgreSQLContainer<?> postgreSQLContainer){
      final WaitStrategy DAPR_CONTAINER_WAIT_STRATEGY = Wait.forHttp("/v1.0/healthz")
              .forPort(3500)
@@ -76,17 +61,6 @@ public class DaprTestContainersConfig {
              .dependsOn(postgreSQLContainer);
    }
 
-
-  @DynamicPropertySource
-  void daprProperties(DynamicPropertyRegistry registry, DaprContainer daprContainer) {
-    org.testcontainers.Testcontainers.exposeHostPorts(8080);
-    daprContainer.start();
-    registry.add("dapr.grpc.port", daprContainer::getGrpcPort);
-    registry.add("dapr.http.port", daprContainer::getHttpPort);
-    registry.add("dapr.grpc.endpoint", daprContainer::getGrpcEndpoint);
-    registry.add("dapr.http.endpoint", daprContainer::getHttpEndpoint);
-
-  }
 
   private static Map<String, String> createStateStoreProperties() {
     Map<String, String> result = new HashMap<>();

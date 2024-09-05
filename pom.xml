@@ -42,6 +42,12 @@
 		</dependency>
 		<dependency>
 			<groupId>io.dapr.spring</groupId>
+			<artifactId>dapr-spring-boot-tests</artifactId>
+			<version>${dapr-java-sdk.alpha-version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.dapr.spring</groupId>
 			<artifactId>dapr-spring-data</artifactId>
 			<version>${dapr-java-sdk.alpha-version}</version>
 		</dependency>
