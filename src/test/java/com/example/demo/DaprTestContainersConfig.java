@@ -6,10 +6,12 @@ import io.dapr.testcontainers.DaprLogLevel;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,6 +31,18 @@ public class DaprTestContainersConfig {
      return Network.newNetwork();
    }
 
+
+
+   @Bean
+   public KafkaContainer kafkaContainer(Network daprNetwork){
+     return new KafkaContainer(
+             DockerImageName.parse("confluentinc/cp-kafka:7.6.1")
+     ).withExposedPorts(9093)
+             .withNetworkAliases("kafka-broker")
+             .withNetwork(daprNetwork);
+   }
+
+
    @Bean
    public  PostgreSQLContainer<?> postgreSQLContainer(Network daprNetwork){
      return new PostgreSQLContainer<>("postgres:16-alpine")
@@ -43,21 +57,27 @@ public class DaprTestContainersConfig {
 
    @Bean
    @ServiceConnection
-   public DaprContainer daprContainer(Network daprNetwork, PostgreSQLContainer<?> postgreSQLContainer){
+   public DaprContainer daprContainer(Network daprNetwork, PostgreSQLContainer<?> postgreSQLContainer, KafkaContainer kafkaContainer){
      final WaitStrategy DAPR_CONTAINER_WAIT_STRATEGY = Wait.forHttp("/v1.0/healthz")
              .forPort(3500)
              .forStatusCodeMatching(statusCode -> statusCode >= 200 && statusCode <= 399);
-     return new DaprContainer("daprio/daprd:1.13.2")
+     kafkaContainer.start();
+     Map<String, String> kafkaProperties = new HashMap<>();
+     kafkaProperties.put("brokers", "kafka-broker:9093");
+     kafkaProperties.put("authType", "none");
+     return new DaprContainer("daprio/daprd:1.14.1")
              .withAppName("local-dapr-app")
              .withNetwork(daprNetwork)
              .withComponent(new Component("kvstore", "state.postgresql", "v1", STATE_STORE_PROPERTIES))
              .withComponent(new Component("kvbinding", "bindings.postgresql", "v1", BINDING_PROPERTIES))
+             .withComponent(new Component("pubsub", "pubsub.kafka", "v1", kafkaProperties))
              .withDaprLogLevel(DaprLogLevel.DEBUG)
              .withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String()))
-             //.withAppPort(8080)
+             .withAppPort(8080)
              .withDaprLogLevel(DaprLogLevel.DEBUG)
-             //.withAppChannelAddress("host.testcontainers.internal")
-             .waitingFor(DAPR_CONTAINER_WAIT_STRATEGY)
+             .withAppChannelAddress("host.testcontainers.internal")
+             //.waitingFor(DAPR_CONTAINER_WAIT_STRATEGY)
+             .dependsOn(kafkaContainer)
              .dependsOn(postgreSQLContainer);
    }
 
@@ -71,4 +91,6 @@ public class DaprTestContainersConfig {
 
     return result;
   }
+
+
 }
