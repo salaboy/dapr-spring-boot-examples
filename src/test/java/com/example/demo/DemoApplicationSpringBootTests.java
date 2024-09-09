@@ -1,5 +1,6 @@
 package com.example.demo;
 
+import io.dapr.springboot.DaprAutoConfiguration;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.BeforeAll;
@@ -13,7 +14,7 @@ import java.io.IOException;
 import static io.restassured.RestAssured.given;
 
 
-@SpringBootTest(classes= {TestDemoApplication.class, DaprTestContainersConfig.class},
+@SpringBootTest(classes= {TestDemoApplication.class, DaprTestContainersConfig.class, DaprAutoConfiguration.class},
 				webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 class DemoApplicationSpringBootTests {
 

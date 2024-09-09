@@ -20,12 +20,13 @@ public class DemoRestController {
 
   @PostMapping("/pubsub")
   public void pubSubMessage(@RequestBody Order order){
+    System.out.println("PRODUCE +++++ " + order);
     daprClient.publishEvent("pubsub", "topic", order).block();
   }
 
-  @PostMapping
+  @PostMapping("/subscribe")
   @Topic(pubsubName = "pubsub", name = "topic")
-  public void consumeMessage(CloudEvent<Order> cloudEvent){
+  public void subscribe(@RequestBody CloudEvent<Order> cloudEvent){
     System.out.println("CONSUME +++++ " + cloudEvent);
     System.out.println("ORDER +++++ " + cloudEvent.getData());
   }
