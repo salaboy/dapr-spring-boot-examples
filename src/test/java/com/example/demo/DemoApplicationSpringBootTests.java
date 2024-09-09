@@ -6,21 +6,24 @@ import io.restassured.http.ContentType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.testcontainers.Testcontainers;
 
 import java.io.IOException;
 
 import static io.restassured.RestAssured.given;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 @SpringBootTest(classes= {TestDemoApplication.class, DaprTestContainersConfig.class, DaprAutoConfiguration.class},
 				webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 class DemoApplicationSpringBootTests {
 
+	@Autowired
+	private DemoRestController controller;
 	@BeforeAll
-	static void  classSetUp(){
-		Testcontainers.exposeHostPorts(8080);
+	public static void setup(){
+		org.testcontainers.Testcontainers.exposeHostPorts(8080);
 	}
 
 	@BeforeEach
@@ -46,6 +49,7 @@ class DemoApplicationSpringBootTests {
 						.then()
 						.statusCode(200);
 
+		assertEquals(1, controller.getAllEvents().size());
 
 	}
 

@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.Collections;
@@ -29,13 +30,22 @@ public class DaprTestContainersConfig {
      return Network.newNetwork();
    }
 
+
    @Bean
-   public KafkaContainer kafkaContainer(Network daprNetwork){
-     return new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.1"))
-             .withExposedPorts(9092)
-             .withNetworkAliases("kafka-broker")
-             .withNetwork(daprNetwork);
+   public RabbitMQContainer rabbitMQContainer(Network daprNetwork){
+      return new RabbitMQContainer(DockerImageName.parse("rabbitmq:3.7.25-management-alpine"))
+              .withExposedPorts(5672)
+              .withNetworkAliases("rabbitmq")
+              .withNetwork(daprNetwork);
+
    }
+//   @Bean
+//   public KafkaContainer kafkaContainer(Network daprNetwork){
+//     return new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.1"))
+//             .withExposedPorts(9092, 9093)
+//             .withNetworkAliases("kafka-broker")
+//             .withNetwork(daprNetwork);
+//   }
 
    @Bean
    public  PostgreSQLContainer<?> postgreSQLContainer(Network daprNetwork){
@@ -51,29 +61,35 @@ public class DaprTestContainersConfig {
 
    @Bean
    @ServiceConnection
-   public DaprContainer daprContainer(Network daprNetwork, PostgreSQLContainer<?> postgreSQLContainer, KafkaContainer kafkaContainer){
+   public DaprContainer daprContainer(Network daprNetwork, PostgreSQLContainer<?> postgreSQLContainer, RabbitMQContainer rabbitMQContainer){
 //     final WaitStrategy DAPR_CONTAINER_WAIT_STRATEGY = Wait.forHttp("/v1.0/healthz")
 //             .forPort(3500)
 //             .forStatusCodeMatching(statusCode -> statusCode >= 200 && statusCode <= 399);
 
-     Map<String, String> kafkaProperties = new HashMap<>();
-     kafkaProperties.put("brokers", "kafka-broker:9092");
-     kafkaProperties.put("authType", "none");
-     kafkaProperties.put("authRequired", "false");
-     kafkaProperties.put("disableTls", "true");
+//     Map<String, String> kafkaProperties = new HashMap<>();
+//     kafkaProperties.put("brokers", "kafka-broker:9092");
+//     kafkaProperties.put("authType", "none");
+//     kafkaProperties.put("authRequired", "false");
+//     kafkaProperties.put("disableTls", "true");
 
-     return new DaprContainer("daprio/daprd:1.14.2")
+     Map<String, String> rabbitMqProperties = new HashMap<>();
+     rabbitMqProperties.put("connectionString", "amqp://guest:guest@rabbitmq:5672");
+     rabbitMqProperties.put("user", "guest");
+     rabbitMqProperties.put("password", "guest");
+
+
+     return new DaprContainer("daprio/daprd:1.13.4")
              .withAppName("local-dapr-app")
              .withNetwork(daprNetwork)
              .withComponent(new Component("kvstore", "state.postgresql", "v1", STATE_STORE_PROPERTIES))
              .withComponent(new Component("kvbinding", "bindings.postgresql", "v1", BINDING_PROPERTIES))
-             .withComponent(new Component("pubsub", "pubsub.kafka", "v1", kafkaProperties))
+             .withComponent(new Component("pubsub", "pubsub.rabbitmq", "v1", rabbitMqProperties))
              .withDaprLogLevel(DaprLogLevel.DEBUG)
              .withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String()))
              .withAppPort(8080)
              .withAppChannelAddress("host.testcontainers.internal")
              //.waitingFor(DAPR_CONTAINER_WAIT_STRATEGY)
-             .dependsOn(kafkaContainer)
+             .dependsOn(rabbitMQContainer)
              .dependsOn(postgreSQLContainer);
    }
 
